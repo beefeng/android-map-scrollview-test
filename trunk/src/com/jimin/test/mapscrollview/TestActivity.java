@@ -1,4 +1,4 @@
-package com.jimin.test;
+package com.jimin.test.mapscrollview;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -9,7 +9,8 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
-import com.jimin.test.view.MapScrollView;
+import com.jimin.test.mapscrollview.R;
+import com.jimin.test.mapscrollview.view.MapScrollView;
 
 public class TestActivity extends Activity {
 	
@@ -46,15 +47,7 @@ public class TestActivity extends Activity {
 			
 			@Override
 			public void onClick(View v) {
-				int center[] = myView.getCenter();
-				if (center != null) {
-					Toast.makeText(TestActivity.this, "(" + center[0] + "," + center[1] + ")", 3000).show();
-				} else {
-					Toast.makeText(TestActivity.this, "null", 3000).show();
-				}
-				left += 10;
-				btn.layout(left, top, left + btn.getWidth(), top + btn.getHeight());
-				btn.postInvalidate();
+				myView.test();
 			}
 		});
     }
