@@ -1,4 +1,4 @@
-package com.jimin.test.view;
+package com.jimin.test.mapscrollview.view;
 
 import android.content.Context;
 import android.graphics.Canvas;

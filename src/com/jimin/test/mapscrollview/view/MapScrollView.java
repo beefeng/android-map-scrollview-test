@@ -1,10 +1,11 @@
-package com.jimin.test.view;
+package com.jimin.test.mapscrollview.view;
 
 import java.util.ArrayList;
 import java.util.Random;
 
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.SyncResult;
 import android.graphics.Point;
 import android.os.Handler;
 import android.util.AttributeSet;
@@ -12,7 +13,7 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
 
-import com.jimin.test.R;
+import com.jimin.test.mapscrollview.R;
 
 public class MapScrollView extends ViewGroup{
 
@@ -30,6 +31,8 @@ public class MapScrollView extends ViewGroup{
 	 */
 	private static final int DELTA_Y = 10;
 	
+	private static final int TILE_LOOP_X = 1;
+	private static final int TILE_LOOP_Y = 1;
 	private static final int GOE_MAP_TILE_COUNT_X = 7;;
 	private static final int GOE_MAP_TILE_COUNT_Y = 15;
 	private static final int GOE_MAP_DATA_COUNT_X = 13;
@@ -64,7 +67,10 @@ public class MapScrollView extends ViewGroup{
 	private int lastCenterX;
 	private int lastCenterY;
 	
-
+	private Object mLock = new Object();
+	
+	private boolean isLayouting = false;
+	
 	private ArrayList<ArrayList<TileImageView>> imageXYList;
 	
 	public MapScrollView(Context context) {
@@ -90,13 +96,13 @@ public class MapScrollView extends ViewGroup{
 		int index = 0;
 		
 		imageXYList = new ArrayList<ArrayList<TileImageView>>();
-		for (int j = -7; j <= 7; j ++) {
+		for (int j = -TILE_LOOP_Y; j <= TILE_LOOP_Y; j ++) {
 			
 			ArrayList<TileImageView> xList = new ArrayList<TileImageView>();
 			
-			for (int i = -3; i <= 3; i ++) {
+			for (int i = -TILE_LOOP_X; i <= TILE_LOOP_X; i ++) {
 				TileImageView image = getView(null, i, j);
-				image.setImageResource(R.drawable.empty_1);
+				image.setImageResource(getRandomDrawable());
 				addView(image, index ++);
 				
 				xList.add(image);
@@ -123,14 +129,21 @@ public class MapScrollView extends ViewGroup{
 	@Override
 	protected void onLayout(boolean changed, int l, int t, int r, int b) {
 		Log.d(TAG, "onLayout called, " + l + "," + t + "," + r + "," + b);
-		int index = 0;
-		for (int j = -7; j <= 7; j ++) {
-			for (int i = -3; i <= 3; i ++) {
-				TileImageView child = (TileImageView) getChildAt(index ++);
-				layoutTile(child, i, j);
-			}
-		}
+//		int index = 0;
+//		for (int j = -TILE_LOOP_Y; j <= TILE_LOOP_Y; j ++) {
+//			for (int i = -TILE_LOOP_X; i <= TILE_LOOP_X; i ++) {
+//				TileImageView child = (TileImageView) getChildAt(index ++);
+//				layoutTile(child, i, j);
+//			}
+//		}
 		
+		int count = getChildCount();
+		for (int i=0; i < count; i++) {
+			TileImageView child = (TileImageView) getChildAt(i);
+			Point p = (Point) child.getTag();
+			layoutTile(child, p.x, p.y);
+		}
+		setLayout(false);
 		lastCenterX = getScrollX();
 		lastCenterY = getScrollY();
 	}
@@ -237,74 +250,86 @@ public class MapScrollView extends ViewGroup{
 
 		centerX = SCREEN_WIDTH/2 + x;
 		centerY = SCREEN_HEIGHT/2 + y;
-		
-		super.scrollTo(x, y);
-		
-		checkBoundary(x, y);
+		if (!isLayout()) {
+			super.scrollTo(x, y);
+			checkBoundary(x, y);
+		}
 	}
 
 	private void checkBoundary(int x, int y) {
-		if (x - lastCenterX > GOE_MAP_TILE_WIDTH) {
-			// 重用i坐标最小的view
+		if (x - lastCenterX > GOE_MAP_TILE_WIDTH - 2 * DELTA_X) {
+			// 重用i坐标最大的view
 			for (ArrayList<TileImageView> xList : imageXYList) {
+				setLayout(true);
 				TileImageView view = xList.remove(0);
 				Point p = (Point) view.getTag();
-				Log.d(TAG, "begin reuse image orig is " + p.x + "," + p.y);
-				p.x += GOE_MAP_TILE_COUNT_X;
+				Log.d(TAG, "1+++++++  begin reuse image orig is " + p.x + "," + p.y);
+				p.x += 2*TILE_LOOP_X + 1;
 				TileImageView convertView = getView(view, p.x, p.y);
-				
-				layoutTile(convertView, p.x, p.y);
-				
+//				layoutTile(convertView, p.x, p.y);
+//				Log.d(TAG, "1-------  layout image " + p.x + "," + p.y);
 				xList.add(convertView);
 			}
 		}
 		
-		if (x - lastCenterX < -GOE_MAP_TILE_WIDTH) {
-			// 重用i坐标最大的view
+		if (x - lastCenterX < -GOE_MAP_TILE_WIDTH - 2 * DELTA_X) {
+			// 重用i坐标最小的view
 			for (ArrayList<TileImageView> xList : imageXYList) {
+				setLayout(true);
 				TileImageView view = xList.remove(xList.size() - 1);
 				Point p = (Point) view.getTag();
-				Log.d(TAG, "begin reuse image orig is " + p.x + "," + p.y);
-				p.x -= GOE_MAP_TILE_COUNT_X;
+				Log.d(TAG, "2+++++++  begin reuse image orig is " + p.x + "," + p.y);
+				p.x -= 2*TILE_LOOP_X + 1;
 				TileImageView convertView = getView(view, p.x, p.y);
 				
-				layoutTile(convertView, p.x, p.y);
+//				layoutTile(convertView, p.x, p.y);
+//				Log.d(TAG, "2-------  layout image " + p.x + "," + p.y);
 				
 				xList.add(0, convertView);
 			}
 		}
 		
-		if (y - lastCenterY > GOE_MAP_TILE_HEIGHT) {
+		if (y - lastCenterY > GOE_MAP_TILE_HEIGHT - DELTA_Y) {
 			// 重用j坐标最小的view
 			ArrayList<TileImageView> xList = imageXYList.remove(0);
 			for (TileImageView view : xList) {
-				
+				setLayout(true);
 				Point p = (Point) view.getTag();
-				Log.d(TAG, "begin reuse image orig is " + p.x + "," + p.y);
-				p.y += GOE_MAP_TILE_COUNT_Y;
+				Log.d(TAG, "3+++++++  begin reuse image orig is " + p.x + "," + p.y);
+				p.y += 2*TILE_LOOP_Y + 1;
 				TileImageView convertView = getView(view, p.x, p.y);
 				
-				layoutTile(convertView, p.x, p.y);
+//				layoutTile(convertView, p.x, p.y);
+//				Log.d(TAG, "3-------  layout image " + p.x + "," + p.y);
 			}
 			imageXYList.add(xList);
 		}
 		
-		if (y - lastCenterY < -GOE_MAP_TILE_HEIGHT) {
-			// 重用j坐标最大的view
+		if (y - lastCenterY < -GOE_MAP_TILE_HEIGHT - DELTA_Y) {
+			// 重用j坐标最小的view
 			ArrayList<TileImageView> xList = imageXYList.remove(imageXYList.size() - 1);
 			for (TileImageView view : xList) {
-				
+				setLayout(true);
 				Point p = (Point) view.getTag();
-				Log.d(TAG, "begin reuse image orig is " + p.x + "," + p.y);
-				p.y -= GOE_MAP_TILE_COUNT_Y;
+				Log.d(TAG, "4+++++++  begin reuse image orig is " + p.x + "," + p.y);
+				p.y -= 2 * TILE_LOOP_Y + 1;
 				TileImageView convertView = getView(view, p.x, p.y);
 				
-				layoutTile(convertView, p.x, p.y);
+//				layoutTile(convertView, p.x, p.y);
+//				Log.d(TAG, "4-------  layout image " + p.x + "," + p.y);
 			}
 			imageXYList.add(0, xList);
 		}
 	}
 	
+	private int flag = 100;
+	
+	public void test() {
+		ArrayList<TileImageView> xList = imageXYList.get(0);
+		TileImageView image = xList.get(0);
+		image.layout(flag, flag, flag + GOE_MAP_TILE_WIDTH, flag + GOE_MAP_TILE_HEIGHT);
+		flag += 10;
+	}
 	
 	private void layoutTile(TileImageView view, int i, int j) {
 		int offsetX;
@@ -327,10 +352,8 @@ public class MapScrollView extends ViewGroup{
 		
 		left = SCREEN_WIDTH / 2 + offsetX;
 		top = SCREEN_HEIGHT / 2 + offsetY;
+		Log.d(TAG, "layoutTile " + i + "," + j + " by offsetX=" + offsetX + ",offsetY=" + offsetY);
 		view.layout(left, top, left + GOE_MAP_TILE_WIDTH, top + GOE_MAP_TILE_HEIGHT);
-		Log.d(TAG, "layout tile image["+ i + "," + j + "] view at " + left + "," + top + ","
-				+ (left + GOE_MAP_TILE_WIDTH) + ","
-				+ (top + GOE_MAP_TILE_HEIGHT));
 	}
 	
 	
@@ -414,4 +437,15 @@ public class MapScrollView extends ViewGroup{
 		return drawable;
 	}
 	
+	private boolean isLayout() {
+		synchronized(mLock) {
+			return isLayouting;
+		}
+	}
+	
+	private void setLayout(boolean value) {
+		synchronized(mLock) {
+			isLayouting = value;
+		}
+	}
 }

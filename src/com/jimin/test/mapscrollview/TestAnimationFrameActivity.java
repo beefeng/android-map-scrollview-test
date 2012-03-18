@@ -1,4 +1,6 @@
-package com.jimin.test;
+package com.jimin.test.mapscrollview;
+
+import com.jimin.test.mapscrollview.R;
 
 import android.app.Activity;
 import android.app.AlertDialog;
