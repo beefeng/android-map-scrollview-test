@@ -67,10 +67,6 @@ public class MapScrollView extends ViewGroup{
 	private int lastCenterX;
 	private int lastCenterY;
 	
-	private Object mLock = new Object();
-	
-	private boolean isLayouting = false;
-	
 	private ArrayList<ArrayList<TileImageView>> imageXYList;
 	
 	public MapScrollView(Context context) {
@@ -128,14 +124,7 @@ public class MapScrollView extends ViewGroup{
 	
 	@Override
 	protected void onLayout(boolean changed, int l, int t, int r, int b) {
-		Log.d(TAG, "onLayout called, " + l + "," + t + "," + r + "," + b);
-//		int index = 0;
-//		for (int j = -TILE_LOOP_Y; j <= TILE_LOOP_Y; j ++) {
-//			for (int i = -TILE_LOOP_X; i <= TILE_LOOP_X; i ++) {
-//				TileImageView child = (TileImageView) getChildAt(index ++);
-//				layoutTile(child, i, j);
-//			}
-//		}
+		Log.d(TAG, "********************** onLayout called, " + l + "," + t + "," + r + "," + b);
 		
 		int count = getChildCount();
 		for (int i=0; i < count; i++) {
@@ -143,7 +132,6 @@ public class MapScrollView extends ViewGroup{
 			Point p = (Point) child.getTag();
 			layoutTile(child, p.x, p.y);
 		}
-		setLayout(false);
 		lastCenterX = getScrollX();
 		lastCenterY = getScrollY();
 	}
@@ -238,29 +226,18 @@ public class MapScrollView extends ViewGroup{
 	
 	@Override
 	public void scrollTo(int x, int y) {
-		
-		/*if ((x < 0 && (SCREEN_WIDTH/2 - x) > GOE_MAP_X_RANGE / 2) || 
-				(x > 0 && (SCREEN_WIDTH/2 + x) > GOE_MAP_X_RANGE / 2) || 
-				(y < 0 && (SCREEN_HEIGHT/2 - y) > GOE_MAP_Y_RANGE / 2) ||
-				(y > 0 && (SCREEN_HEIGHT/2 + y) > GOE_MAP_Y_RANGE / 2)) {
-			// 到达边界
-			onReachBoundary();
-			return;
-		}*/
 
 		centerX = SCREEN_WIDTH/2 + x;
 		centerY = SCREEN_HEIGHT/2 + y;
-		if (!isLayout()) {
-			super.scrollTo(x, y);
-			checkBoundary(x, y);
-		}
+
+		super.scrollTo(x, y);
+		checkBoundary(x, y);
 	}
 
 	private void checkBoundary(int x, int y) {
 		if (x - lastCenterX > GOE_MAP_TILE_WIDTH - 2 * DELTA_X) {
 			// 重用i坐标最大的view
 			for (ArrayList<TileImageView> xList : imageXYList) {
-				setLayout(true);
 				TileImageView view = xList.remove(0);
 				Point p = (Point) view.getTag();
 				Log.d(TAG, "1+++++++  begin reuse image orig is " + p.x + "," + p.y);
@@ -275,7 +252,6 @@ public class MapScrollView extends ViewGroup{
 		if (x - lastCenterX < -GOE_MAP_TILE_WIDTH - 2 * DELTA_X) {
 			// 重用i坐标最小的view
 			for (ArrayList<TileImageView> xList : imageXYList) {
-				setLayout(true);
 				TileImageView view = xList.remove(xList.size() - 1);
 				Point p = (Point) view.getTag();
 				Log.d(TAG, "2+++++++  begin reuse image orig is " + p.x + "," + p.y);
@@ -293,7 +269,6 @@ public class MapScrollView extends ViewGroup{
 			// 重用j坐标最小的view
 			ArrayList<TileImageView> xList = imageXYList.remove(0);
 			for (TileImageView view : xList) {
-				setLayout(true);
 				Point p = (Point) view.getTag();
 				Log.d(TAG, "3+++++++  begin reuse image orig is " + p.x + "," + p.y);
 				p.y += 2*TILE_LOOP_Y + 1;
@@ -309,7 +284,6 @@ public class MapScrollView extends ViewGroup{
 			// 重用j坐标最小的view
 			ArrayList<TileImageView> xList = imageXYList.remove(imageXYList.size() - 1);
 			for (TileImageView view : xList) {
-				setLayout(true);
 				Point p = (Point) view.getTag();
 				Log.d(TAG, "4+++++++  begin reuse image orig is " + p.x + "," + p.y);
 				p.y -= 2 * TILE_LOOP_Y + 1;
@@ -437,15 +411,4 @@ public class MapScrollView extends ViewGroup{
 		return drawable;
 	}
 	
-	private boolean isLayout() {
-		synchronized(mLock) {
-			return isLayouting;
-		}
-	}
-	
-	private void setLayout(boolean value) {
-		synchronized(mLock) {
-			isLayouting = value;
-		}
-	}
 }
